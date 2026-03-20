@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>모아모아 - 생일 펀딩 서비스</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Pretendard', 'sans-serif'] },
+          colors: { coral: '#FF6B6B' }
+        }
+      }
+    }
+  </script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Pretendard', sans-serif;
+      background: #EBEBEB;
+      -webkit-font-smoothing: antialiased;
+    }
+    #root {
+      max-width: 480px;
+      margin: 0 auto;
+      min-height: 100vh;
+      background: #fff;
+      position: relative;
+      overflow-x: hidden;
+    }
+    .page-wrap { padding-bottom: 76px; min-height: 100vh; }
+    .page-in { animation: pageIn 0.25s ease both; }
+    @keyframes pageIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    /* inputs */
+    .field {
+      width: 100%; border: 1.5px solid #E5E7EB; border-radius: 12px;
+      padding: 13px 16px; font-size: 15px; font-family: Pretendard, sans-serif;
+      transition: border-color .2s; background: #fff;
+    }
+    .field:focus { outline: none; border-color: #FF6B6B; }
+    select.field { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%23aaa'%3E%3Cpath fill-rule='evenodd' d='M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; background-size: 18px; padding-right: 36px; }
+    /* buttons */
+    .btn-primary {
+      width: 100%; padding: 14px; border-radius: 14px; font-size: 16px;
+      font-weight: 700; font-family: Pretendard, sans-serif; background: #FF6B6B; color: #fff;
+      border: none; cursor: pointer; transition: background .15s, transform .1s;
+    }
+    .btn-primary:hover { background: #e85c5c; }
+    .btn-primary:active { transform: scale(0.98); background: #d44; }
+    .btn-secondary {
+      width: 100%; padding: 13px; border-radius: 14px; font-size: 16px;
+      font-weight: 700; font-family: Pretendard, sans-serif; background: transparent;
+      color: #FF6B6B; border: 2px solid #FF6B6B; cursor: pointer;
+      transition: background .15s;
+    }
+    .btn-secondary:hover { background: #fff0f0; }
+    .btn-dark {
+      width: 100%; padding: 13px; border-radius: 14px; font-size: 15px;
+      font-weight: 700; font-family: Pretendard, sans-serif; background: #111; color: #fff;
+      border: none; cursor: pointer; transition: background .15s;
+    }
+    .btn-dark:hover { background: #333; }
+    /* progress */
+    .progress-track { background: #F0F0F0; border-radius: 999px; height: 10px; overflow: hidden; }
+    .progress-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg,#FF6B6B,#FFB347); transition: width .8s cubic-bezier(.4,0,.2,1); }
+    /* cards */
+    .card { background: #fff; border-radius: 18px; box-shadow: 0 2px 14px rgba(0,0,0,.07); overflow: hidden; cursor: pointer; transition: transform .18s, box-shadow .18s; }
+    .card:hover { transform: translateY(-2px); box-shadow: 0 6px 22px rgba(0,0,0,.12); }
+    /* upload area */
+    .upload-box { border: 2px dashed #DDD; border-radius: 16px; padding: 36px 20px; text-align: center; cursor: pointer; transition: all .2s; }
+    .upload-box:hover { border-color: #FF6B6B; background: #fff8f8; }
+    /* badge */
+    .badge-active { background:#FFE8E8; color:#FF6B6B; font-size:11px; font-weight:700; padding: 3px 9px; border-radius:999px; }
+    .badge-closed { background:#F0F0F0; color:#888; font-size:11px; font-weight:700; padding: 3px 9px; border-radius:999px; }
+    /* bottom nav */
+    .bottom-nav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 480px; background: #fff; border-top: 1px solid #EEEEEE; display: flex; z-index: 100; }
+    .nav-btn { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 10px 0 12px; gap: 3px; background: none; border: none; cursor: pointer; font-family: Pretendard, sans-serif; transition: color .15s; }
+    .nav-btn span.icon { font-size: 22px; }
+    .nav-btn span.label { font-size: 10px; font-weight: 600; }
+    /* topbar */
+    .topbar { position: sticky; top: 0; z-index: 50; background: #fff; border-bottom: 1px solid #F0F0F0; height: 56px; display: flex; align-items: center; padding: 0 16px; }
+    /* scrollbar */
+    ::-webkit-scrollbar { width: 0; }
+    /* amount quick buttons */
+    .quick-btn { flex: 1; padding: 9px 0; border-radius: 10px; font-size: 13px; font-weight: 600; font-family: Pretendard, sans-serif; border: none; cursor: pointer; transition: all .15s; }
+    /* toast */
+    .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #111; color: #fff; padding: 10px 22px; border-radius: 99px; font-size: 13px; font-weight: 600; z-index: 200; white-space: nowrap; animation: toastIn .25s ease; }
+    @keyframes toastIn { from{opacity:0;transform:translateX(-50%) translateY(-8px)}to{opacity:1;transform:translateX(-50%) translateY(0)} }
+    /* section divider */
+    .divider { height: 8px; background: #F7F7F7; }
+    /* list item */
+    .donor-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: #FAFAFA; border-radius: 14px; }
+    .funding-list-item { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: #FAFAFA; border-radius: 14px; cursor: pointer; transition: background .15s; }
+    .funding-list-item:hover { background: #F0F0F0; }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useContext, createContext, useRef, useCallback } = React;
+
+/* =========================================================
+   STORAGE
+   ========================================================= */
+const DB = {
+  users: () => JSON.parse(localStorage.getItem('moa_users') || '[]'),
+  saveUsers: u => localStorage.setItem('moa_users', JSON.stringify(u)),
+  fundings: () => JSON.parse(localStorage.getItem('moa_fundings') || '[]'),
+  saveFundings: f => localStorage.setItem('moa_fundings', JSON.stringify(f)),
+  me: () => JSON.parse(localStorage.getItem('moa_me') || 'null'),
+  setMe: u => localStorage.setItem('moa_me', JSON.stringify(u)),
+  clearMe: () => localStorage.removeItem('moa_me'),
+};
+
+/* =========================================================
+   CONTEXT
+   ========================================================= */
+const Ctx = createContext(null);
+
+function AppProvider({ children }) {
+  const [me, setMeState] = useState(DB.me());
+  const [fundings, setFundings] = useState(DB.fundings());
+
+  const login = u => { DB.setMe(u); setMeState(u); };
+  const logout = () => { DB.clearMe(); setMeState(null); };
+
+  const reload = () => setFundings(DB.fundings());
+
+  const addFunding = f => {
+    const list = DB.fundings();
+    list.push(f);
+    DB.saveFundings(list);
+    setFundings([...list]);
+  };
+
+  const patchFunding = updated => {
+    const list = DB.fundings();
+    const i = list.findIndex(f => f.id === updated.id);
+    if (i !== -1) { list[i] = updated; DB.saveFundings(list); setFundings([...list]); }
+  };
+
+  const byId = id => DB.fundings().find(f => f.id === id) || null;
+
+  return (
+    <Ctx.Provider value={{ me, fundings, login, logout, addFunding, patchFunding, byId, reload }}>
+      {children}
+    </Ctx.Provider>
+  );
+}
+const useApp = () => useContext(Ctx);
+
+/* =========================================================
+   ROUTER
+   ========================================================= */
+function useRouter() {
+  const [hash, setHash] = useState(window.location.hash || '#/');
+  useEffect(() => {
+    const h = () => setHash(window.location.hash || '#/');
+    window.addEventListener('hashchange', h);
+    return () => window.removeEventListener('hashchange', h);
+  }, []);
+  const go = useCallback(p => { window.location.hash = p; }, []);
+  const parts = hash.replace(/^#\/?/, '').split('/');
+  return { route: parts[0] || '', params: parts.slice(1), go };
+}
+
+/* =========================================================
+   UTILS
+   ========================================================= */
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2);
+const won = n => n.toLocaleString('ko-KR') + '원';
+const fmtDate = s => { const d = new Date(s); return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`; };
+const pct = (cur, tgt) => tgt > 0 ? Math.min(100, Math.round(cur / tgt * 100)) : 0;
+
+function boom() {
+  confetti({ particleCount: 120, spread: 80, origin: { y: 0.55 } });
+  setTimeout(() => confetti({ particleCount: 60, angle: 60, spread: 60, origin: { x: 0, y: 0.6 } }), 200);
+  setTimeout(() => confetti({ particleCount: 60, angle: 120, spread: 60, origin: { x: 1, y: 0.6 } }), 350);
+}
+
+const BANKS = ['국민은행','신한은행','하나은행','우리은행','농협은행','카카오뱅크','토스뱅크','기업은행','SC제일은행','대구은행','부산은행','케이뱅크','새마을금고','우체국'];
+
+/* =========================================================
+   SHARED COMPONENTS
+   ========================================================= */
+function ProgressBar({ cur, tgt }) {
+  const p = pct(cur, tgt);
+  return (
+    <div>
+      <div className="progress-track">
+        <div className="progress-fill" style={{ width: p + '%' }} />
+      </div>
+      <div style={{ display:'flex', justifyContent:'space-between', marginTop:5 }}>
+        <span style={{ fontSize:13, fontWeight:700, color:'#FF6B6B' }}>{p}%</span>
+        {p >= 100 && <span style={{ fontSize:11, fontWeight:700, color:'#22C55E', background:'#F0FDF4', padding:'2px 8px', borderRadius:99 }}>목표 달성!</span>}
+      </div>
+    </div>
+  );
+}
+
+function Toast({ msg }) {
+  return msg ? <div className="toast">{msg}</div> : null;
+}
+
+function TopBar({ title, onBack, right }) {
+  return (
+    <div className="topbar">
+      {onBack
+        ? <button onClick={onBack} style={{ background:'none', border:'none', cursor:'pointer', padding:'4px 6px 4px 0', marginRight:4 }}>
+            <svg width="22" height="22" fill="none" stroke="#111" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7"/></svg>
+          </button>
+        : <div style={{ width:30 }} />}
+      <div style={{ flex:1, textAlign:'center', fontWeight:700, fontSize:16 }}>{title}</div>
+      {right || <div style={{ width:30 }} />}
+    </div>
+  );
+}
+
+function BottomNav({ route, go }) {
+  const items = [
+    { id: '', icon: '🏠', label: '홈' },
+    { id: 'new-funding', icon: '✨', label: '펀딩 열기' },
+    { id: 'history', icon: '💝', label: '후원 내역' },
+    { id: 'mypage', icon: '👤', label: '마이페이지' },
+  ];
+  return (
+    <nav className="bottom-nav">
+      {items.map(it => (
+        <button
+          key={it.id}
+          className="nav-btn"
+          style={{ color: route === it.id ? '#FF6B6B' : '#BBBBBB' }}
+          onClick={() => go('#/' + it.id)}
+        >
+          <span className="icon">{it.icon}</span>
+          <span className="label">{it.label}</span>
+        </button>
+      ))}
+    </nav>
+  );
+}
+
+function FundingCard({ f, go }) {
+  const { me } = useApp();
+  const users = DB.users();
+  const owner = users.find(u => u.id === f.userId);
+  const p = pct(f.currentAmount, f.targetAmount);
+  const isOwner = me && me.id === f.userId;
+  return (
+    <div className="card" onClick={() => go(`#/funding/${f.id}`)}>
+      <div style={{ position:'relative', paddingTop:'66.66%', background:'#F5F5F5' }}>
+        {f.image
+          ? <img src={f.image} alt={f.title} style={{ position:'absolute', inset:0, width:'100%', height:'100%', objectFit:'cover' }} />
+          : <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', fontSize:40 }}>🎁</div>
+        }
+        <div style={{ position:'absolute', top:8, right:8 }}>
+          <span className={f.status === 'active' ? 'badge-active' : 'badge-closed'}>
+            {f.status === 'active' ? '진행 중' : '종료됨'}
+          </span>
+        </div>
+        {isOwner && <div style={{ position:'absolute', top:8, left:8 }}><span style={{ background:'#111', color:'#fff', fontSize:11, fontWeight:700, padding:'3px 9px', borderRadius:99 }}>내 펀딩</span></div>}
+      </div>
+      <div style={{ padding:'12px 12px 14px' }}>
+        <p style={{ fontSize:11, color:'#AAA', marginBottom:3 }}>{owner ? owner.name + '님의 선물' : '선물 펀딩'}</p>
+        <p style={{ fontWeight:700, fontSize:14, color:'#111', marginBottom:8, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{f.title}</p>
+        <ProgressBar cur={f.currentAmount} tgt={f.targetAmount} />
+        <div style={{ display:'flex', justifyContent:'space-between', marginTop:8 }}>
+          <span style={{ fontSize:12, color:'#BBB' }}>{(f.donations||[]).length}명 참여</span>
+          <span style={{ fontSize:12, fontWeight:700, color:'#FF6B6B' }}>{won(f.targetAmount)}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
+   PAGES
+   ========================================================= */
+
+/* ---- LOGIN ---- */
+function LoginPage({ go }) {
+  const { login } = useApp();
+  const [u, setU] = useState('');
+  const [p, setP] = useState('');
+  const [err, setErr] = useState('');
+
+  const submit = () => {
+    if (!u || !p) { setErr('아이디와 비밀번호를 입력해주세요.'); return; }
+    const found = DB.users().find(x => x.username === u && x.password === p);
+    if (!found) { setErr('아이디 또는 비밀번호가 올바르지 않습니다.'); return; }
+    login(found);
+    go('#/');
+  };
+
+  return (
+    <div className="page-in" style={{ minHeight:'100vh', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'0 28px' }}>
+      <div style={{ textAlign:'center', marginBottom:40 }}>
+        <div style={{ fontSize:56, marginBottom:8 }}>🎁</div>
+        <h1 style={{ fontSize:32, fontWeight:900, letterSpacing:-1 }}>모아모아</h1>
+        <p style={{ color:'#AAA', fontSize:14, marginTop:6 }}>소중한 선물, 함께 모아요</p>
+      </div>
+      <div style={{ width:'100%', display:'flex', flexDirection:'column', gap:10 }}>
+        <input className="field" placeholder="아이디" value={u} onChange={e=>setU(e.target.value)} onKeyDown={e=>e.key==='Enter'&&submit()} />
+        <input className="field" type="password" placeholder="비밀번호" value={p} onChange={e=>setP(e.target.value)} onKeyDown={e=>e.key==='Enter'&&submit()} />
+        {err && <p style={{ color:'#FF4040', fontSize:13, textAlign:'center' }}>{err}</p>}
+        <button className="btn-primary" onClick={submit}>로그인</button>
+        <button className="btn-secondary" onClick={()=>go('#/register')}>회원가입</button>
+      </div>
+    </div>
+  );
+}
+
+/* ---- REGISTER ---- */
+function RegisterPage({ go }) {
+  const { login } = useApp();
+  const [f, setF] = useState({ name:'', username:'', pw:'', pw2:'', bank:'', acct:'', holder:'' });
+  const [err, setErr] = useState('');
+  const set = (k, v) => setF(p => ({...p, [k]:v}));
+
+  const submit = () => {
+    if (!f.name||!f.username||!f.pw) { setErr('이름, 아이디, 비밀번호를 입력해주세요.'); return; }
+    if (f.pw !== f.pw2) { setErr('비밀번호가 일치하지 않습니다.'); return; }
+    if (!f.bank||!f.acct||!f.holder) { setErr('계좌 정보를 모두 입력해주세요.'); return; }
+    const users = DB.users();
+    if (users.find(u => u.username === f.username)) { setErr('이미 사용 중인 아이디입니다.'); return; }
+    const u = { id:uid(), name:f.name, username:f.username, password:f.pw, bankName:f.bank, accountNumber:f.acct, accountHolder:f.holder };
+    users.push(u);
+    DB.saveUsers(users);
+    login(u);
+    go('#/');
+  };
+
+  return (
+    <div className="page-in" style={{ padding:'0 0 40px' }}>
+      <TopBar title="회원가입" onBack={() => go('#/login')} />
+      <div style={{ padding:'20px 20px 0', display:'flex', flexDirection:'column', gap:20 }}>
+        <div>
+          <p style={{ fontSize:12, fontWeight:700, color:'#999', marginBottom:10, textTransform:'uppercase', letterSpacing:1 }}>기본 정보</p>
+          <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+            <input className="field" placeholder="이름" value={f.name} onChange={e=>set('name',e.target.value)} />
+            <input className="field" placeholder="아이디" value={f.username} onChange={e=>set('username',e.target.value)} />
+            <input className="field" type="password" placeholder="비밀번호" value={f.pw} onChange={e=>set('pw',e.target.value)} />
+            <input className="field" type="password" placeholder="비밀번호 확인" value={f.pw2} onChange={e=>set('pw2',e.target.value)} />
+          </div>
+        </div>
+        <div>
+          <p style={{ fontSize:12, fontWeight:700, color:'#999', marginBottom:4, textTransform:'uppercase', letterSpacing:1 }}>계좌 정보</p>
+          <p style={{ fontSize:12, color:'#CCC', marginBottom:10 }}>후원을 받을 계좌를 미리 등록하면 펀딩 페이지에 자동으로 노출돼요.</p>
+          <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+            <select className="field" value={f.bank} onChange={e=>set('bank',e.target.value)}>
+              <option value="">은행 선택</option>
+              {BANKS.map(b => <option key={b} value={b}>{b}</option>)}
+            </select>
+            <input className="field" placeholder="계좌번호 (- 없이 입력)" value={f.acct} onChange={e=>set('acct',e.target.value)} />
+            <input className="field" placeholder="예금주" value={f.holder} onChange={e=>set('holder',e.target.value)} />
+          </div>
+        </div>
+        {err && <p style={{ color:'#FF4040', fontSize:13, textAlign:'center' }}>{err}</p>}
+        <button className="btn-primary" onClick={submit}>가입하기</button>
+      </div>
+    </div>
+  );
+}
+
+/* ---- HOME ---- */
+function HomePage({ go }) {
+  const { me, fundings } = useApp();
+  const [tab, setTab] = useState('active');
+  const active = fundings.filter(f => f.status === 'active');
+  const closed = fundings.filter(f => f.status === 'closed');
+  const list = tab === 'active' ? active : closed;
+
+  return (
+    <div className="page-in page-wrap">
+      <div className="topbar">
+        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+          <span style={{ fontSize:22 }}>🎁</span>
+          <span style={{ fontWeight:900, fontSize:20, letterSpacing:-0.5 }}>모아모아</span>
+        </div>
+        <div style={{ flex:1 }} />
+        <span style={{ fontSize:13, color:'#888' }}>{me?.name}님</span>
+      </div>
+
+      <div style={{ display:'flex', gap:8, padding:'14px 16px 10px' }}>
+        {[['active','진행 중'], ['closed','종료됨']].map(([id, label]) => (
+          <button
+            key={id}
+            onClick={() => setTab(id)}
+            style={{ padding:'7px 16px', borderRadius:99, border:'none', cursor:'pointer', fontFamily:'Pretendard, sans-serif', fontWeight:700, fontSize:13, transition:'all .15s',
+              background: tab===id ? (id==='active'?'#FF6B6B':'#444') : '#F0F0F0',
+              color: tab===id ? '#fff' : '#999'
+            }}
+          >
+            {label} {(id==='active'?active:closed).length > 0 && `(${(id==='active'?active:closed).length})`}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ padding:'0 16px 20px' }}>
+        {list.length === 0
+          ? <div style={{ textAlign:'center', paddingTop:80 }}>
+              <div style={{ fontSize:52, marginBottom:14 }}>{tab==='active'?'🎁':'📦'}</div>
+              <p style={{ color:'#CCC', fontSize:14 }}>{tab==='active'?'진행 중인 펀딩이 없어요':'종료된 펀딩이 없어요'}</p>
+              {tab==='active' && <button className="btn-primary" style={{ marginTop:20, width:'auto', padding:'11px 28px', fontSize:14 }} onClick={()=>go('#/new-funding')}>+ 첫 펀딩 열기</button>}
+            </div>
+          : <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+              {list.map(f => <FundingCard key={f.id} f={f} go={go} />)}
+            </div>
+        }
+      </div>
+    </div>
+  );
+}
+
+/* ---- NEW FUNDING ---- */
+function NewFundingPage({ go }) {
+  const { me, addFunding } = useApp();
+  const [title, setTitle] = useState('');
+  const [desc, setDesc] = useState('');
+  const [amount, setAmount] = useState('');
+  const [img, setImg] = useState(null);
+  const [preview, setPreview] = useState(null);
+  const [err, setErr] = useState('');
+  const ref = useRef();
+
+  const onImg = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const r = new FileReader();
+    r.onload = ev => { setImg(ev.target.result); setPreview(ev.target.result); };
+    r.readAsDataURL(file);
+  };
+
+  const submit = () => {
+    if (!title.trim()) { setErr('선물 이름을 입력해주세요.'); return; }
+    if (!amount || isNaN(amount) || Number(amount) < 1000) { setErr('목표 금액을 1,000원 이상 입력해주세요.'); return; }
+    const f = {
+      id: uid(), userId: me.id, title: title.trim(), description: desc.trim(),
+      image: img, targetAmount: Number(amount), currentAmount: 0,
+      status: 'active', createdAt: new Date().toISOString(),
+      donations: [], certificationImage: null, certificationMessage: null,
+    };
+    addFunding(f);
+    go(`#/funding/${f.id}`);
+  };
+
+  return (
+    <div className="page-in">
+      <TopBar title="새 펀딩 열기" onBack={() => go('#/')} />
+      <div className="page-wrap" style={{ padding:'20px 20px 0', display:'flex', flexDirection:'column', gap:18 }}>
+        <div>
+          <label style={{ fontSize:13, fontWeight:700, display:'block', marginBottom:8 }}>선물 사진</label>
+          {preview
+            ? <div style={{ position:'relative', paddingTop:'56.25%', borderRadius:16, overflow:'hidden', background:'#F5F5F5' }}>
+                <img src={preview} alt="미리보기" style={{ position:'absolute', inset:0, width:'100%', height:'100%', objectFit:'cover' }} />
+                <button onClick={()=>{setImg(null);setPreview(null);}} style={{ position:'absolute', top:8, right:8, background:'rgba(0,0,0,.5)', color:'#fff', border:'none', borderRadius:'50%', width:30, height:30, cursor:'pointer', fontSize:14, fontFamily:'Pretendard, sans-serif' }}>✕</button>
+              </div>
+            : <div className="upload-box" onClick={()=>ref.current?.click()}>
+                <div style={{ fontSize:32, marginBottom:8 }}>📷</div>
+                <p style={{ color:'#AAA', fontSize:14 }}>사진을 업로드하세요</p>
+                <p style={{ color:'#CCC', fontSize:12, marginTop:4 }}>탭하여 기기에서 선택</p>
+              </div>
+          }
+          <input ref={ref} type="file" accept="image/*" style={{ display:'none' }} onChange={onImg} />
+        </div>
+
+        <div>
+          <label style={{ fontSize:13, fontWeight:700, display:'block', marginBottom:8 }}>선물 이름 <span style={{ color:'#FF6B6B' }}>*</span></label>
+          <input className="field" placeholder="갖고 싶은 선물 이름을 입력하세요" value={title} onChange={e=>setTitle(e.target.value)} />
+        </div>
+
+        <div>
+          <label style={{ fontSize:13, fontWeight:700, display:'block', marginBottom:8 }}>선물 설명</label>
+          <textarea className="field" rows={3} placeholder="이 선물을 원하는 이유나 추가 설명을 적어주세요" value={desc} onChange={e=>setDesc(e.target.value)} style={{ resize:'none', fontFamily:'Pretendard, sans-serif' }} />
+        </div>
+
+        <div>
+          <label style={{ fontSize:13, fontWeight:700, display:'block', marginBottom:8 }}>목표 금액 <span style={{ color:'#FF6B6B' }}>*</span></label>
+          <div style={{ position:'relative' }}>
+            <input className="field" type="number" placeholder="목표 금액" value={amount} onChange={e=>setAmount(e.target.value)} style={{ paddingRight:32 }} />
+            <span style={{ position:'absolute', right:16, top:'50%', transform:'translateY(-50%)', color:'#AAA', fontSize:14 }}>원</span>
+          </div>
+          {amount && !isNaN(amount) && Number(amount) > 0 &&
+            <p style={{ fontSize:12, color:'#AAA', marginTop:5, marginLeft:2 }}>{Number(amount).toLocaleString()}원</p>}
+        </div>
+
+        {err && <p style={{ color:'#FF4040', fontSize:13 }}>{err}</p>}
+        <button className="btn-primary" onClick={submit}>펀딩 열기 🎁</button>
+      </div>
+    </div>
+  );
+}
+
+/* ---- FUNDING DETAIL ---- */
+function FundingDetailPage({ fid, go }) {
+  const { me, byId, patchFunding } = useApp();
+  const [f, setF] = useState(byId(fid));
+  const [dForm, setDForm] = useState({ name: me?.name||'', depositor:'', amount:'' });
+  const [dErr, setDErr] = useState('');
+  const [toast, setToast] = useState('');
+  const [certMode, setCertMode] = useState(false);
+  const [certImg, setCertImg] = useState(null);
+  const [certPrev, setCertPrev] = useState(null);
+  const [certMsg, setCertMsg] = useState('');
+  const certRef = useRef();
+
+  useEffect(() => { const updated = byId(fid); if(updated) setF(updated); }, [fid]);
+
+  const showToast = msg => { setToast(msg); setTimeout(() => setToast(''), 2200); };
+
+  if (!f) return (
+    <div style={{ minHeight:'100vh', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center' }}>
+      <p style={{ color:'#CCC', fontSize:14 }}>펀딩을 찾을 수 없어요</p>
+      <button onClick={()=>go('#/')} style={{ marginTop:16, color:'#FF6B6B', background:'none', border:'none', cursor:'pointer', fontSize:14, fontWeight:700, fontFamily:'Pretendard, sans-serif' }}>홈으로</button>
+    </div>
+  );
+
+  const isOwner = me && me.id === f.userId;
+  const ownerUser = DB.users().find(u => u.id === f.userId);
+  const p = pct(f.currentAmount, f.targetAmount);
+
+  const refresh = updated => { patchFunding(updated); setF(updated); };
+
+  const donate = () => {
+    setDErr('');
+    if (!dForm.name.trim()) { setDErr('이름을 입력해주세요.'); return; }
+    if (!dForm.depositor.trim()) { setDErr('입금자명을 입력해주세요.'); return; }
+    if (!dForm.amount || isNaN(dForm.amount) || Number(dForm.amount) < 1) { setDErr('금액을 입력해주세요.'); return; }
+    if (f.status !== 'active') { setDErr('이미 종료된 펀딩이에요.'); return; }
+    const d = { id:uid(), donorId:me?.id||null, donorName:dForm.name, depositorName:dForm.depositor, amount:Number(dForm.amount), createdAt:new Date().toISOString() };
+    const updated = { ...f, currentAmount: f.currentAmount + d.amount, donations: [...(f.donations||[]), d] };
+    refresh(updated);
+    boom();
+    showToast('🎉 후원 완료! 폭죽이 터졌어요!');
+    setDForm({ name:me?.name||'', depositor:'', amount:'' });
+  };
+
+  const deleteDonation = did => {
+    const d = f.donations.find(x => x.id === did);
+    if (!d) return;
+    if (!window.confirm(`${d.donorName}님의 후원(${won(d.amount)})을 삭제할까요?`)) return;
+    const updated = { ...f, currentAmount: Math.max(0, f.currentAmount - d.amount), donations: f.donations.filter(x => x.id !== did) };
+    refresh(updated);
+  };
+
+  const closeFunding = () => {
+    if (!window.confirm('펀딩을 종료할까요? 종료 후에는 다시 열 수 없어요.')) return;
+    refresh({ ...f, status:'closed', closedAt:new Date().toISOString() });
+    showToast('펀딩이 종료됐어요.');
+  };
+
+  const onCertImg = e => {
+    const file = e.target.files[0]; if(!file) return;
+    const r = new FileReader();
+    r.onload = ev => { setCertImg(ev.target.result); setCertPrev(ev.target.result); };
+    r.readAsDataURL(file);
+  };
+
+  const submitCert = () => {
+    if (!certImg && !certMsg.trim()) { alert('사진이나 메시지를 입력해주세요.'); return; }
+    refresh({ ...f, certificationImage: certImg, certificationMessage: certMsg });
+    setCertMode(false);
+    showToast('인증이 등록됐어요 💌');
+  };
+
+  const copyLink = () => {
+    const url = window.location.origin + window.location.pathname + `#/funding/${fid}`;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(url).then(() => showToast('링크가 복사됐어요!'));
+    } else {
+      const ta = document.createElement('textarea');
+      ta.value = url; document.body.appendChild(ta); ta.select();
+      document.execCommand('copy'); document.body.removeChild(ta);
+      showToast('링크가 복사됐어요!');
+    }
+  };
+
+  const shareBtn = (
+    <button onClick={copyLink} style={{ background:'none', border:'none', cursor:'pointer', padding:'4px' }}>
+      <svg width="20" height="20" fill="none" stroke="#555" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+        <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+        <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+      </svg>
+    </button>
+  );
+
+  return (
+    <div className="page-in">
+      <Toast msg={toast} />
+      <TopBar title={f.title} onBack={() => go('#/')} right={shareBtn} />
+
+      <div className="page-wrap">
+        {/* 선물 이미지 */}
+        {f.image && (
+          <div style={{ width:'100%', maxHeight:300, overflow:'hidden', background:'#F5F5F5' }}>
+            <img src={f.image} alt={f.title} style={{ width:'100%', maxHeight:300, objectFit:'cover', display:'block' }} />
+          </div>
+        )}
+
+        {/* 기본 정보 */}
+        <div style={{ padding:'20px 20px 18px' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8 }}>
+            <span className={f.status==='active'?'badge-active':'badge-closed'}>{f.status==='active'?'진행 중':'종료됨'}</span>
+            <span style={{ fontSize:13, color:'#AAA' }}>{ownerUser?.name}님의 펀딩 · {fmtDate(f.createdAt)} 시작</span>
+          </div>
+          <h2 style={{ fontWeight:900, fontSize:22, marginBottom:f.description?8:14, color:'#111' }}>{f.title}</h2>
+          {f.description && <p style={{ fontSize:14, color:'#777', lineHeight:1.7, marginBottom:14 }}>{f.description}</p>}
+
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:8 }}>
+            <div>
+              <span style={{ fontWeight:900, fontSize:24, color:'#FF6B6B' }}>{won(f.currentAmount)}</span>
+              <span style={{ fontSize:13, color:'#AAA', marginLeft:4 }}>모였어요</span>
+            </div>
+            <span style={{ fontSize:13, color:'#AAA' }}>목표 {won(f.targetAmount)}</span>
+          </div>
+          <ProgressBar cur={f.currentAmount} tgt={f.targetAmount} />
+          <div style={{ marginTop:8, display:'flex', gap:12 }}>
+            <span style={{ fontSize:12, color:'#CCC' }}>후원자 {(f.donations||[]).length}명</span>
+            {f.closedAt && <><span style={{ fontSize:12, color:'#CCC' }}>·</span><span style={{ fontSize:12, color:'#CCC' }}>{fmtDate(f.closedAt)} 종료</span></>}
+          </div>
+        </div>
+
+        {/* 계좌 정보 */}
+        {f.status === 'active' && ownerUser && (
+          <>
+            <div className="divider" />
+            <div style={{ padding:'18px 20px' }}>
+              <p style={{ fontWeight:700, fontSize:14, marginBottom:12 }}>입금 계좌 정보</p>
+              <div style={{ background:'#FAFAFA', borderRadius:14, padding:'14px 16px', display:'flex', flexDirection:'column', gap:10 }}>
+                {[['은행', ownerUser.bankName], ['계좌번호', ownerUser.accountNumber], ['예금주', ownerUser.accountHolder]].map(([k,v]) => (
+                  <div key={k} style={{ display:'flex', justifyContent:'space-between' }}>
+                    <span style={{ fontSize:13, color:'#AAA' }}>{k}</span>
+                    <span style={{ fontSize:14, fontWeight:700 }}>{v}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* 후원 폼 */}
+        {f.status === 'active' && (
+          <>
+            <div className="divider" />
+            <div style={{ padding:'18px 20px' }}>
+              <p style={{ fontWeight:700, fontSize:16, marginBottom:14 }}>후원하기</p>
+              <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+                <input className="field" placeholder="이름" value={dForm.name} onChange={e=>setDForm(p=>({...p,name:e.target.value}))} />
+                <input className="field" placeholder="입금자명 (통장에 표시될 이름)" value={dForm.depositor} onChange={e=>setDForm(p=>({...p,depositor:e.target.value}))} />
+                <div style={{ position:'relative' }}>
+                  <input className="field" type="number" placeholder="후원 금액" value={dForm.amount} onChange={e=>setDForm(p=>({...p,amount:e.target.value}))} style={{ paddingRight:32 }} />
+                  <span style={{ position:'absolute', right:16, top:'50%', transform:'translateY(-50%)', color:'#AAA', fontSize:14 }}>원</span>
+                </div>
+                <div style={{ display:'flex', gap:6 }}>
+                  {[10000,20000,30000,50000].map(a => (
+                    <button key={a} className="quick-btn"
+                      style={{ background: Number(dForm.amount)===a?'#FF6B6B':'#F0F0F0', color: Number(dForm.amount)===a?'#fff':'#666' }}
+                      onClick={()=>setDForm(p=>({...p,amount:String(a)}))}>
+                      {a/10000}만원
+                    </button>
+                  ))}
+                </div>
+                {dErr && <p style={{ color:'#FF4040', fontSize:13 }}>{dErr}</p>}
+                <button className="btn-primary" onClick={donate}>입금했어요 🎉</button>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* 오너: 후원자 목록 + 종료 버튼 */}
+        {isOwner && (
+          <>
+            <div className="divider" />
+            <div style={{ padding:'18px 20px' }}>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
+                <p style={{ fontWeight:700, fontSize:16 }}>후원자 목록</p>
+                <span style={{ fontSize:13, color:'#AAA' }}>{(f.donations||[]).length}명</span>
+              </div>
+              {(f.donations||[]).length === 0
+                ? <p style={{ color:'#CCC', fontSize:13, textAlign:'center', padding:'16px 0' }}>아직 후원자가 없어요</p>
+                : <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                    {[...(f.donations||[])].reverse().map(d => (
+                      <div key={d.id} className="donor-row">
+                        <div>
+                          <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                            <span style={{ fontWeight:700, fontSize:14 }}>{d.donorName}</span>
+                            <span style={{ fontSize:11, color:'#AAA' }}>입금자명: {d.depositorName}</span>
+                          </div>
+                          <div style={{ display:'flex', gap:8, marginTop:3 }}>
+                            <span style={{ fontWeight:700, fontSize:13, color:'#FF6B6B' }}>{won(d.amount)}</span>
+                            <span style={{ fontSize:11, color:'#CCC' }}>{fmtDate(d.createdAt)}</span>
+                          </div>
+                        </div>
+                        <button onClick={()=>deleteDonation(d.id)} style={{ fontSize:12, color:'#CCC', background:'none', border:'none', cursor:'pointer', fontFamily:'Pretendard, sans-serif', padding:'4px 8px', borderRadius:8, transition:'all .15s' }}
+                          onMouseOver={e=>{e.target.style.background='#FFE8E8';e.target.style.color='#FF4040';}}
+                          onMouseOut={e=>{e.target.style.background='none';e.target.style.color='#CCC';}}>
+                          삭제
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+              }
+              {f.status === 'active' && (
+                <button className="btn-dark" style={{ marginTop:16 }} onClick={closeFunding}>펀딩 종료하기</button>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* 인증 섹션 */}
+        {f.status === 'closed' && (
+          <>
+            <div className="divider" />
+            <div style={{ padding:'18px 20px 0' }}>
+              <p style={{ fontWeight:700, fontSize:16, marginBottom:12 }}>구매 인증</p>
+              {f.certificationImage || f.certificationMessage
+                ? <div>
+                    {f.certificationImage && <img src={f.certificationImage} alt="인증 사진" style={{ width:'100%', borderRadius:14, objectFit:'cover', marginBottom:10 }} />}
+                    {f.certificationMessage && (
+                      <div style={{ background:'#FAFAFA', borderRadius:14, padding:'14px 16px' }}>
+                        <p style={{ fontSize:14, lineHeight:1.7, color:'#444' }}>{f.certificationMessage}</p>
+                        {ownerUser && <p style={{ fontSize:12, color:'#AAA', marginTop:6 }}>— {ownerUser.name}</p>}
+                      </div>
+                    )}
+                    {isOwner && !certMode && (
+                      <button onClick={()=>{setCertMode(true);setCertImg(f.certificationImage);setCertPrev(f.certificationImage);setCertMsg(f.certificationMessage||'');}} style={{ fontSize:13, color:'#AAA', background:'none', border:'none', cursor:'pointer', fontFamily:'Pretendard, sans-serif', marginTop:8, textDecoration:'underline' }}>수정하기</button>
+                    )}
+                  </div>
+                : isOwner
+                  ? <div>
+                      <p style={{ fontSize:13, color:'#AAA', marginBottom:10 }}>후원자들에게 구매 인증을 보내주세요!</p>
+                      {!certMode
+                        ? <button className="btn-secondary" onClick={()=>setCertMode(true)}>인증 사진 & 감사 메시지 등록</button>
+                        : null
+                      }
+                    </div>
+                  : <p style={{ color:'#CCC', fontSize:13, textAlign:'center', padding:'16px 0' }}>아직 인증 사진이 등록되지 않았어요</p>
+              }
+              {isOwner && certMode && (
+                <div style={{ display:'flex', flexDirection:'column', gap:10, marginTop: (f.certificationImage||f.certificationMessage) ? 0 : 0 }}>
+                  {certPrev
+                    ? <div style={{ position:'relative', paddingTop:'56.25%', borderRadius:14, overflow:'hidden', background:'#F5F5F5' }}>
+                        <img src={certPrev} alt="인증 사진" style={{ position:'absolute', inset:0, width:'100%', height:'100%', objectFit:'cover' }} />
+                        <button onClick={()=>{setCertImg(null);setCertPrev(null);}} style={{ position:'absolute', top:8, right:8, background:'rgba(0,0,0,.5)', color:'#fff', border:'none', borderRadius:'50%', width:28, height:28, cursor:'pointer', fontSize:13, fontFamily:'Pretendard, sans-serif' }}>✕</button>
+                      </div>
+                    : <div className="upload-box" onClick={()=>certRef.current?.click()}>
+                        <div style={{ fontSize:28, marginBottom:6 }}>📸</div>
+                        <p style={{ color:'#AAA', fontSize:13 }}>인증 사진 업로드</p>
+                      </div>
+                  }
+                  <input ref={certRef} type="file" accept="image/*" style={{ display:'none' }} onChange={onCertImg} />
+                  <textarea className="field" rows={3} placeholder="후원해주신 분들께 감사 메시지를 전해주세요 💌" value={certMsg} onChange={e=>setCertMsg(e.target.value)} style={{ resize:'none', fontFamily:'Pretendard, sans-serif' }} />
+                  <div style={{ display:'flex', gap:8 }}>
+                    <button className="btn-secondary" style={{ flex:1 }} onClick={()=>setCertMode(false)}>취소</button>
+                    <button className="btn-primary" style={{ flex:2 }} onClick={submitCert}>등록하기</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ---- DONATION HISTORY ---- */
+function HistoryPage({ go }) {
+  const { me, fundings } = useApp();
+  const items = fundings
+    .filter(f => (f.donations||[]).some(d => d.donorId === me?.id))
+    .map(f => ({ f, mine: f.donations.filter(d => d.donorId === me.id) }));
+
+  return (
+    <div className="page-in page-wrap">
+      <div className="topbar" style={{ justifyContent:'center' }}>
+        <span style={{ fontWeight:700, fontSize:16 }}>후원 내역</span>
+      </div>
+      <div style={{ padding:'16px 16px 0' }}>
+        {items.length === 0
+          ? <div style={{ textAlign:'center', paddingTop:80 }}>
+              <div style={{ fontSize:52, marginBottom:14 }}>💝</div>
+              <p style={{ color:'#CCC', fontSize:14 }}>아직 후원한 펀딩이 없어요</p>
+              <button className="btn-primary" style={{ marginTop:20, width:'auto', padding:'11px 28px', fontSize:14 }} onClick={()=>go('#/')}>펀딩 둘러보기</button>
+            </div>
+          : <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+              {items.map(({ f, mine }) => {
+                const total = mine.reduce((s,d)=>s+d.amount,0);
+                const hasCert = f.status==='closed' && (f.certificationImage||f.certificationMessage);
+                return (
+                  <div key={f.id} className="card" style={{ display:'flex', gap:12, padding:14, cursor:'pointer', borderRadius:16 }} onClick={()=>go(`#/funding/${f.id}`)}>
+                    {f.image
+                      ? <img src={f.image} alt={f.title} style={{ width:72, height:72, objectFit:'cover', borderRadius:12, flexShrink:0 }} />
+                      : <div style={{ width:72, height:72, background:'#F5F5F5', borderRadius:12, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center', fontSize:28 }}>🎁</div>
+                    }
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:4 }}>
+                        <span className={f.status==='active'?'badge-active':'badge-closed'}>{f.status==='active'?'진행 중':'종료됨'}</span>
+                        {hasCert && <span style={{ fontSize:11, color:'#22C55E', fontWeight:700 }}>인증 완료 👀</span>}
+                      </div>
+                      <p style={{ fontWeight:700, fontSize:14, color:'#111', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{f.title}</p>
+                      <p style={{ fontSize:12, color:'#AAA', marginTop:3 }}>내 후원: <span style={{ fontWeight:700, color:'#FF6B6B' }}>{won(total)}</span></p>
+                      <div style={{ marginTop:6 }}><ProgressBar cur={f.currentAmount} tgt={f.targetAmount} /></div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+        }
+      </div>
+    </div>
+  );
+}
+
+/* ---- MY PAGE ---- */
+function MyPage({ go }) {
+  const { me, logout, fundings } = useApp();
+  const [editMode, setEditMode] = useState(false);
+  const [ef, setEf] = useState({ bank: me?.bankName||'', acct: me?.accountNumber||'', holder: me?.accountHolder||'' });
+
+  const mine = fundings.filter(f => f.userId === me?.id);
+  const active = mine.filter(f => f.status==='active');
+  const closed = mine.filter(f => f.status==='closed');
+  const totalReceived = mine.reduce((s,f)=>s+f.currentAmount,0);
+
+  const saveAccount = () => {
+    if (!ef.bank||!ef.acct||!ef.holder) { alert('모든 계좌 정보를 입력해주세요.'); return; }
+    const users = DB.users();
+    const i = users.findIndex(u => u.id === me.id);
+    if (i !== -1) { users[i] = {...users[i], bankName:ef.bank, accountNumber:ef.acct, accountHolder:ef.holder}; DB.saveUsers(users); DB.setMe(users[i]); }
+    setEditMode(false);
+    alert('계좌 정보가 저장됐어요!');
+    window.location.reload();
+  };
+
+  const doLogout = () => { if (window.confirm('로그아웃 하시겠어요?')) { logout(); go('#/login'); } };
+
+  return (
+    <div className="page-in page-wrap">
+      <div className="topbar">
+        <span style={{ fontWeight:700, fontSize:16 }}>마이페이지</span>
+        <div style={{ flex:1 }} />
+        <button onClick={doLogout} style={{ fontSize:13, color:'#AAA', background:'none', border:'none', cursor:'pointer', fontFamily:'Pretendard, sans-serif' }}>로그아웃</button>
+      </div>
+
+      {/* 프로필 */}
+      <div style={{ padding:'20px 20px 18px', borderBottom:'1px solid #F0F0F0' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:14 }}>
+          <div style={{ width:56, height:56, borderRadius:'50%', background:'linear-gradient(135deg,#FF6B6B,#FFB347)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, fontWeight:900, color:'#fff', flexShrink:0 }}>
+            {me?.name?.charAt(0)}
+          </div>
+          <div>
+            <p style={{ fontWeight:900, fontSize:18 }}>{me?.name}</p>
+            <p style={{ fontSize:13, color:'#AAA' }}>@{me?.username}</p>
+          </div>
+        </div>
+        <div style={{ display:'flex', gap:10, marginTop:16 }}>
+          {[['진행 중', active.length, '#FF6B6B'], ['종료됨', closed.length, '#888'], ['총 모금', totalReceived.toLocaleString()+'원', '#22C55E']].map(([label, val, color]) => (
+            <div key={label} style={{ flex:1, background:'#FAFAFA', borderRadius:14, padding:'12px 8px', textAlign:'center' }}>
+              <p style={{ fontWeight:900, fontSize:17, color }}>{val}</p>
+              <p style={{ fontSize:11, color:'#AAA', marginTop:2 }}>{label}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 계좌 정보 */}
+      <div style={{ padding:'18px 20px', borderBottom:'1px solid #F0F0F0' }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
+          <p style={{ fontWeight:700, fontSize:15 }}>계좌 정보</p>
+          {!editMode && <button onClick={()=>setEditMode(true)} style={{ fontSize:13, fontWeight:700, color:'#FF6B6B', background:'none', border:'none', cursor:'pointer', fontFamily:'Pretendard, sans-serif' }}>수정</button>}
+        </div>
+        {editMode
+          ? <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+              <select className="field" value={ef.bank} onChange={e=>setEf(p=>({...p,bank:e.target.value}))}>
+                <option value="">은행 선택</option>
+                {BANKS.map(b=><option key={b} value={b}>{b}</option>)}
+              </select>
+              <input className="field" placeholder="계좌번호" value={ef.acct} onChange={e=>setEf(p=>({...p,acct:e.target.value}))} />
+              <input className="field" placeholder="예금주" value={ef.holder} onChange={e=>setEf(p=>({...p,holder:e.target.value}))} />
+              <div style={{ display:'flex', gap:8, marginTop:4 }}>
+                <button className="btn-secondary" style={{ flex:1 }} onClick={()=>setEditMode(false)}>취소</button>
+                <button className="btn-primary" style={{ flex:2 }} onClick={saveAccount}>저장</button>
+              </div>
+            </div>
+          : <div style={{ background:'#FAFAFA', borderRadius:14, padding:'14px 16px', display:'flex', flexDirection:'column', gap:10 }}>
+              {[['은행', me?.bankName||'-'], ['계좌번호', me?.accountNumber||'-'], ['예금주', me?.accountHolder||'-']].map(([k,v]) => (
+                <div key={k} style={{ display:'flex', justifyContent:'space-between' }}>
+                  <span style={{ fontSize:13, color:'#AAA' }}>{k}</span>
+                  <span style={{ fontSize:14, fontWeight:700 }}>{v}</span>
+                </div>
+              ))}
+            </div>
+        }
+      </div>
+
+      {/* 내 펀딩 목록 */}
+      <div style={{ padding:'18px 20px' }}>
+        <p style={{ fontWeight:700, fontSize:15, marginBottom:12 }}>내 펀딩</p>
+        {mine.length === 0
+          ? <div style={{ textAlign:'center', paddingTop:24 }}>
+              <p style={{ fontSize:13, color:'#CCC' }}>아직 개설한 펀딩이 없어요</p>
+              <button className="btn-primary" style={{ marginTop:12, width:'auto', padding:'10px 24px', fontSize:14 }} onClick={()=>go('#/new-funding')}>펀딩 열기</button>
+            </div>
+          : <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+              {[...mine].reverse().map(f => {
+                const p = pct(f.currentAmount, f.targetAmount);
+                return (
+                  <div key={f.id} className="funding-list-item" onClick={()=>go(`#/funding/${f.id}`)}>
+                    {f.image
+                      ? <img src={f.image} alt={f.title} style={{ width:48, height:48, borderRadius:10, objectFit:'cover', flexShrink:0 }} />
+                      : <div style={{ width:48, height:48, background:'#F0F0F0', borderRadius:10, display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, flexShrink:0 }}>🎁</div>
+                    }
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <p style={{ fontWeight:700, fontSize:14, color:'#111', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{f.title}</p>
+                      <p style={{ fontSize:12, color:'#AAA', marginTop:2 }}>{p}% · {won(f.currentAmount)} / {won(f.targetAmount)}</p>
+                    </div>
+                    <span className={f.status==='active'?'badge-active':'badge-closed'}>{f.status==='active'?'진행 중':'종료됨'}</span>
+                  </div>
+                );
+              })}
+            </div>
+        }
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
+   APP ROOT
+   ========================================================= */
+function App() {
+  const { me } = useApp();
+  const { route, params, go } = useRouter();
+
+  if (!me) {
+    if (route === 'register') return <RegisterPage go={go} />;
+    return <LoginPage go={go} />;
+  }
+
+  let page;
+  if (route === 'funding' && params[0]) page = <FundingDetailPage fid={params[0]} go={go} />;
+  else if (route === 'new-funding') page = <NewFundingPage go={go} />;
+  else if (route === 'history') page = <HistoryPage go={go} />;
+  else if (route === 'mypage') page = <MyPage go={go} />;
+  else page = <HomePage go={go} />;
+
+  return (
+    <div style={{ position:'relative' }}>
+      {page}
+      <BottomNav route={route} go={go} />
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <AppProvider><App /></AppProvider>
+);
+</script>
+</body>
+</html>
